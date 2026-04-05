@@ -1,15 +1,13 @@
-
 import requests
 
-API_KEY = "6426773cbc70f50ad37ef85fb05d69d3"
+API_KEY = "your_new_api_key_here"
 
 def get_weather(city):
-    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
     
     res = requests.get(url)
     data = res.json()
 
-    # ERROR HANDLING
     if "main" not in data:
         raise Exception(data.get("message", "Weather API Error"))
 
