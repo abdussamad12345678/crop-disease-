@@ -1,37 +1,33 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
 import os
 from PIL import Image
+import requests
 from sklearn.ensemble import RandomForestClassifier
 
 # -------------------------------
 # PAGE CONFIG
 # -------------------------------
-st.set_page_config(page_title="PragyanAI", layout="wide")
+st.set_page_config(page_title="PragyanAI Pro", layout="wide")
 
 # -------------------------------
-# CUSTOM CSS (DASHING UI)
+# CSS (PRO UI)
 # -------------------------------
 st.markdown("""
 <style>
-.main {
-    background-color: #f5f7fa;
+body {
+    background-color: #f4f6f9;
 }
-.stButton>button {
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 10px;
-    height: 45px;
-    width: 100%;
+.block-container {
+    padding-top: 1rem;
 }
-.metric-box {
+.card {
     background-color: white;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -39,7 +35,8 @@ st.markdown("""
 # -------------------------------
 # HEADER
 # -------------------------------
-st.markdown("## 🌾 PragyanAI Crop Intelligence Dashboard")
+st.title("🌾 PragyanAI - Smart Crop Intelligence System")
+st.caption("AI-powered Disease Prediction | Weather Analytics | Smart Advisory")
 
 # -------------------------------
 # MODEL
@@ -67,93 +64,140 @@ def load_model():
 model = load_model()
 
 # -------------------------------
-# FAKE WEATHER
+# WEATHER (REAL + FALLBACK)
 # -------------------------------
-def get_fake_weather(city):
-    np.random.seed(len(city))
-    return np.random.randint(20,40), np.random.randint(50,95), np.random.randint(0,20)
+API_KEY = "YOUR_API_KEY"
+
+def get_weather(city):
+    try:
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+        res = requests.get(url).json()
+
+        if "main" not in res:
+            raise Exception("API failed")
+
+        temp = res["main"]["temp"]
+        humidity = res["main"]["humidity"]
+        rainfall = res.get("rain", {}).get("1h", 0)
+
+        return temp, humidity, rainfall, "Live Data"
+
+    except:
+        # fallback demo
+        np.random.seed(len(city))
+        return (
+            np.random.randint(20, 40),
+            np.random.randint(50, 95),
+            np.random.randint(0, 20),
+            "Demo Data"
+        )
 
 # -------------------------------
-# SIDEBAR
+# SIDEBAR CONTROL PANEL
 # -------------------------------
-st.sidebar.title("📊 Control Panel")
+st.sidebar.title("⚙️ Control Panel")
+
 city = st.sidebar.text_input("📍 Location", "Delhi")
-crop = st.sidebar.selectbox("🌾 Crop", ["Rice", "Wheat", "Corn"])
+crop = st.sidebar.selectbox("🌾 Crop Type", ["Rice", "Wheat", "Corn"])
 stage = st.sidebar.selectbox("🌱 Growth Stage", ["Seedling", "Vegetative", "Flowering", "Harvest"])
 
-# -------------------------------
-# MAIN GRID
-# -------------------------------
-col1, col2, col3 = st.columns(3)
+advanced = st.sidebar.checkbox("⚡ Advanced Mode")
+
+if advanced:
+    custom_temp = st.sidebar.slider("Temperature Override", 10, 50, 30)
+    custom_humidity = st.sidebar.slider("Humidity Override", 10, 100, 70)
+    custom_rain = st.sidebar.slider("Rainfall Override", 0, 50, 10)
 
 # -------------------------------
-# BUTTON ACTION
+# TABS (PRO FEATURE)
 # -------------------------------
-if st.sidebar.button("🚀 Analyze Risk"):
+tab1, tab2, tab3 = st.tabs(["📊 Prediction", "📸 Image Analysis", "📈 Analytics"])
 
-    temp, humidity, rainfall = get_fake_weather(city)
+# ===============================
+# TAB 1 - PREDICTION
+# ===============================
+with tab1:
 
-    # METRICS
-    col1.metric("🌡 Temperature", f"{temp} °C")
-    col2.metric("💧 Humidity", f"{humidity}%")
-    col3.metric("🌧 Rainfall", f"{rainfall} mm")
+    if st.button("🚀 Run Analysis"):
 
-    # DFI
-    dfi = (humidity * 0.5) + (rainfall * 0.3) + (temp * 0.2)
+        with st.spinner("Analyzing data..."):
 
-    st.markdown("### 🧠 Disease Favorability Index")
-    st.progress(min(int(dfi),100))
+            temp, humidity, rainfall, source = get_weather(city)
 
-    # PREDICTION
-    prob = model.predict_proba([[temp, humidity, rainfall]])[0][1]
+            if advanced:
+                temp, humidity, rainfall = custom_temp, custom_humidity, custom_rain
 
-    st.markdown("### ⚠ Disease Risk Score")
-    st.progress(int(prob * 100))
+            col1, col2, col3 = st.columns(3)
 
-    # RISK LEVEL
-    if prob < 0.3:
-        st.success("🟢 Low Risk")
-    elif prob < 0.7:
-        st.warning("🟡 Medium Risk")
-    else:
-        st.error("🔴 High Risk")
-        st.info("💊 Apply preventive spray in 2–3 days")
+            col1.metric("🌡 Temp", f"{temp} °C")
+            col2.metric("💧 Humidity", f"{humidity}%")
+            col3.metric("🌧 Rainfall", f"{rainfall} mm")
 
-    # WHAT IF
-    st.markdown("### 🔮 What-if Analysis")
-    new_prob = model.predict_proba([[temp, humidity, rainfall + 10]])[0][1]
-    st.write(f"If rainfall increases → Risk = {round(new_prob,2)}")
+            st.caption(f"Data Source: {source}")
 
-# -------------------------------
-# IMAGE SECTION
-# -------------------------------
-st.markdown("### 📸 Leaf Disease Detection")
+            # DFI
+            dfi = (humidity * 0.5) + (rainfall * 0.3) + (temp * 0.2)
 
-file = st.file_uploader("Upload Leaf Image")
+            st.subheader("🧠 Disease Favorability Index")
+            st.progress(int(min(dfi, 100)))
 
-if file:
-    img = Image.open(file)
-    st.image(img, width=300)
+            # Prediction
+            prob = model.predict_proba([[temp, humidity, rainfall]])[0][1]
 
-    avg = np.array(img).mean()
-    if avg < 100:
-        st.error("Disease Detected")
-    else:
-        st.success("Healthy Leaf")
+            st.subheader("⚠️ Risk Score")
+            st.progress(int(prob * 100))
 
-# -------------------------------
-# DASHBOARD
-# -------------------------------
-st.markdown("### 📊 Analytics Dashboard")
+            # Risk
+            if prob < 0.3:
+                st.success("🟢 Low Risk")
+            elif prob < 0.7:
+                st.warning("🟡 Medium Risk")
+            else:
+                st.error("🔴 High Risk")
+                st.info("💊 Spray recommended within 2–3 days")
 
-data = pd.read_csv("data.csv")
+            # Explainability
+            st.subheader("📌 Why this risk?")
+            st.write(f"High humidity ({humidity}%) and rainfall ({rainfall}mm) increase fungal growth chances.")
 
-c1, c2 = st.columns(2)
-c1.line_chart(data[["temperature", "humidity", "rainfall"]])
-c2.bar_chart(data["disease"].value_counts())
+            # What-if
+            st.subheader("🔮 Scenario Simulation")
+            new_prob = model.predict_proba([[temp, humidity, rainfall + 10]])[0][1]
+            st.write(f"If rainfall increases → Risk: {round(new_prob,2)}")
+
+# ===============================
+# TAB 2 - IMAGE
+# ===============================
+with tab2:
+
+    file = st.file_uploader("Upload Leaf Image")
+
+    if file:
+        img = Image.open(file)
+        st.image(img, width=300)
+
+        avg = np.array(img).mean()
+
+        if avg < 100:
+            st.error("Disease Detected")
+        else:
+            st.success("Healthy Leaf")
+
+# ===============================
+# TAB 3 - ANALYTICS
+# ===============================
+with tab3:
+
+    data = pd.read_csv("data.csv")
+
+    st.subheader("📊 Weather Trends")
+    st.line_chart(data[["temperature", "humidity", "rainfall"]])
+
+    st.subheader("🌾 Disease Distribution")
+    st.bar_chart(data["disease"].value_counts())
 
 # -------------------------------
 # FOOTER
 # -------------------------------
 st.markdown("---")
-st.markdown("🚀 AI predicts crop disease before it happens")
+st.markdown("🚀 Built with AI for Smart Farming | PragyanAI")
