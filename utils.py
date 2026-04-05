@@ -1,6 +1,6 @@
 import requests
 
-API_KEY = "4979576b7d44fdb2c1ab50cae8f7b05f"
+API_KEY = "9f244592efe26bbd55cf0f9ddaeb63d6"
 
 def get_weather(city):
     url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
